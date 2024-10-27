@@ -19,8 +19,9 @@ export default function RootLayout({
     <html lang="zh">
       <head>
         <Script
-          type="module"
           src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+          strategy="beforeInteractive"
+          type="module"
         />
       </head>
       <body className={`${inter.className} bg-gray-100`}>{children}</body>
