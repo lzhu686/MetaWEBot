@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -16,6 +17,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh">
+      <head>
+        <Script
+          type="module"
+          src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+        />
+      </head>
       <body className={`${inter.className} bg-gray-100`}>{children}</body>
     </html>
   )
