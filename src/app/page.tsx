@@ -9,6 +9,11 @@ export default function Home() {
       </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+        <FunctionCard
+          title="ModelView 案例库"
+          description="展示 Web 3D 技术的多种应用。"
+          href="/modelview-cases"
+        />
         <FunctionCard 
           title="Web机器人实时场景同步" 
           description="通过 Web 界面实时同步和监控机器人所处的场景。"
