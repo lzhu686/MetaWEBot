@@ -1,7 +1,14 @@
 'use client'
 
 import Script from 'next/script'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+
+declare global {
+  interface Window {
+    THREE: any;
+    THREEx: any;
+  }
+}
 
 export default function ARLayout({
   children,
@@ -10,6 +17,19 @@ export default function ARLayout({
 }) {
   const [arjsLoaded, setArjsLoaded] = useState(false)
   const [arjsError, setArjsError] = useState<string>('')
+
+  // 将 checkARJS 移到 useEffect 外部作为组件的方法
+  const checkARJS = useCallback(() => {
+    if (
+      window.THREE && 
+      (window as any).THREEx?.ArToolkitSource && 
+      (window as any).THREEx?.ArToolkitContext
+    ) {
+      setArjsLoaded(true);
+      return true;
+    }
+    return false;
+  }, []);
 
   useEffect(() => {
     // 检查设备和浏览器兼容性
@@ -38,20 +58,26 @@ export default function ARLayout({
 
     if (!checkCompatibility()) return
 
-    // 监听 AR.js 加载状态
-    const checkARJS = () => {
-      if (window.THREEx?.ArToolkitSource) {
-        setArjsLoaded(true)
-      }
+    // 如果已经加载了所有必要组件，立即设置状态
+    if (checkARJS()) {
+      setArjsLoaded(true);
+      return;
     }
 
-    const interval = setInterval(checkARJS, 500)
-    const timeout = setTimeout(() => {
-      clearInterval(interval)
-      if (!window.THREEx?.ArToolkitSource) {
-        setArjsError('AR.js 加载超时，请检查网络连接并刷新页面')
+    // 否则开始轮询检查
+    const interval = setInterval(() => {
+      if (checkARJS()) {
+        clearInterval(interval);
+        clearTimeout(timeout);
       }
-    }, 10000)
+    }, 500);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      if (!checkARJS()) {
+        setArjsError('AR组件加载超时，请检查网络连接并刷新页面');
+      }
+    }, 10000);
 
     // 添加屏幕方向变化监听
     const handleOrientation = () => {
@@ -71,7 +97,7 @@ export default function ARLayout({
       window.removeEventListener('orientationchange', handleOrientation)
       window.removeEventListener('resize', handleOrientation)
     }
-  }, [])
+  }, [checkARJS])
 
   return (
     <div>
@@ -79,18 +105,39 @@ export default function ARLayout({
         src="/libs/ar-js/three.js/build/three.min.js"
         strategy="beforeInteractive"
         id="threejs"
+        onError={(e) => {
+          console.error('Three.js加载失败:', e);
+          setArjsError('Three.js加载失败，请检查网络连接并刷新页面');
+        }}
       />
       <Script 
         src="/libs/ar-js/three.js/build/ar-threex.js"
         strategy="afterInteractive"
         id="artoolkit-api"
-        onLoad={() => console.log('ARToolkit API loaded')}
+        onError={(e) => {
+          console.error('ARToolkit API加载失败:', e);
+          setArjsError('AR组件加载失败，请检查网络连接并刷新页面');
+        }}
+        onLoad={() => {
+          console.log('ARToolkit API loaded');
+          // 验证加载是否成功
+          if (!(window as any).THREEx) {
+            setArjsError('AR组件加载不完整，请刷新页面重试');
+          }
+        }}
       />
       <Script 
         src="/libs/ar-js/three.js/build/ar.js"
         strategy="afterInteractive"
         id="arjs"
-        onLoad={() => console.log('AR.js loaded')}
+        onError={(e) => {
+          console.error('AR.js加载失败:', e);
+          setArjsError('AR.js加载失败，请检查网络连接并刷新页面');
+        }}
+        onLoad={() => {
+          console.log('AR.js loaded');
+          setTimeout(checkARJS, 100); // 使用setTimeout确保所有依赖都已加载
+        }}
       />
       
       {/* 状态提示 */}
@@ -126,4 +173,4 @@ export default function ARLayout({
       {children}
     </div>
   )
-} 
+}
