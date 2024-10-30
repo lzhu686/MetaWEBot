@@ -14,12 +14,31 @@ declare global {
   }
 }
 
+// 添加设备检测工具函数
+const getDeviceInfo = () => {
+  const userAgent = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+  const isAndroid = /Android/.test(userAgent);
+  const isMobile = isIOS || isAndroid;
+  const isLowEndDevice = isMobile && (navigator.hardwareConcurrency || 4) <= 4;
+  
+  return {
+    isIOS,
+    isAndroid,
+    isMobile,
+    isLowEndDevice
+  };
+};
+
 export function ARScene({ onError, onLoad }: ARSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneInitialized = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current || sceneInitialized.current) return;
+
+    // 获取设备信息
+    const { isMobile, isLowEndDevice } = getDeviceInfo();
 
     const checkARJS = () => {
       return new Promise((resolve, reject) => {
@@ -44,11 +63,27 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
       });
     };
 
+    // 性能监控函数
+    let frameCount = 0;
+    let lastTime = performance.now();
+    const monitorPerformance = () => {
+      frameCount++;
+      const currentTime = performance.now();
+      if (currentTime - lastTime >= 1000) {
+        const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+        console.log(`当前FPS: ${fps}`);
+        if (fps < 20 && isLowEndDevice) {
+          console.warn('性能不足，建议降低画质设置');
+        }
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+    };
+
     const initAR = async () => {
       try {
-        // 等待 AR.js 加载完成
         await checkARJS();
-        // 确保 THREE 对象存在
+        
         if (!window.THREEx) {
           throw new Error('Three.js 未加载');
         }
@@ -56,21 +91,25 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 创建场景
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(
-          45,  // FOV（视场角）- 较小的角度会让物体看起来更"真实"
-              // 增大会使视野更宽但可能产生畸变
-              // 建议范围：30-45度
-          window.innerWidth / window.innerHeight,  // 宽高比
-          0.1,   // 近平面 - 太小可能导致闪烁，太大可能看不到近处物体
-          1000   // 远平面 - 影响渲染距离
+          isMobile ? 60 : 45,  // 移动端使用更大的FOV
+          window.innerWidth / window.innerHeight,
+          0.1,
+          2000
         );
+
         const renderer = new THREE.WebGLRenderer({
-          antialias: true,
+          antialias: !isMobile,
           alpha: true,
-          preserveDrawingBuffer: true
+          preserveDrawingBuffer: true,
+          powerPreference: 'high-performance'
         });
 
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        if (isMobile) {
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));  // 限制最大像素比
+        } else {
+          renderer.setPixelRatio(window.devicePixelRatio);
+        }
         renderer.setClearColor(0x000000, 0);
         renderer.domElement.style.position = 'absolute';
         renderer.domElement.style.top = '0';
@@ -117,12 +156,11 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         const arToolkitContext = new window.THREEx.ArToolkitContext({
           cameraParametersUrl: '/libs/ar-js/data/camera_para.dat', // 相机标定参数
           detectionMode: 'mono',  // 单目检测模式
-          maxDetectionRate: 60,   // 最大检测帧率，影响性能和稳定性
+          maxDetectionRate: isMobile ? 30 : 60,  // 移动端降低检测帧率
           canvasWidth: window.innerWidth,   // 画布尺寸
           canvasHeight: window.innerHeight,
-          patternRatio: 0.5,    // 标记比例 - 越大检测越精确但需要更清晰的图像，检测不稳定调整这里
-                                 // 建议范围：0.5-0.8
-          imageSmoothingEnabled: true,  // 图像平滑处理
+          patternRatio: isMobile ? 0.65 : 0.5,  // 移动端增加识别比例
+          imageSmoothingEnabled: !isMobile,  // 移动端关闭图像平滑
           debug: false  // 调试模式
         });
 
@@ -154,11 +192,9 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
           type: 'pattern',
           patternUrl: '/libs/ar-js/data/patt.hiro',
           smooth: true,         // 启用平滑
-          smoothCount: 5,       // 平滑帧数 - 增加会更稳定但响应更慢，响应慢调整这里
-                                 // 建议范围：3-8
-          smoothTolerance: 0.01, // 平滑容差 - 越小越精确但可能抖动，抖动调整这里
-                                 // 建议范围：0.001-0.01
-          smoothThreshold: 2    // 平滑阈值 - 影响突变检测，突变调整这里
+          smoothCount: isMobile ? 3 : 5,  // 移动端减少平滑帧数
+          smoothTolerance: isMobile ? 0.02 : 0.01,  // 移动端增加容差
+          smoothThreshold: isMobile ? 3 : 2    // 平滑阈值 - 影响突变检测，突变调整这里
         });
 
         // 创建立方体
@@ -208,8 +244,12 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
                 scene.visible = camera.visible;
               }
               renderer.render(scene, camera);
+              if (isLowEndDevice) {
+                monitorPerformance();
+              }
             } catch (error) {
               console.warn('AR 渲染错误:', error);
+              onError('AR渲染出现问题，请刷新页面重试');
             }
           }
         };

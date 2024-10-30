@@ -72,6 +72,11 @@ export default function ARCasesPage() {
             description="使用A-Frame实现图像追踪和覆盖"
             href="/ar-cases/examples/aframe/image/overlay"
           />
+          <FunctionCard
+            title="A-Frame Marker AI"
+            description="使用A-Frame实现基于AI的标记识别与交互"
+            href="/ar-cases/examples/aframe/marker/ai"
+          />
         </div>
       </div>
 
