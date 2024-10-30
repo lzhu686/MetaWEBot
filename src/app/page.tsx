@@ -14,6 +14,11 @@ export default function Home() {
           description="展示 Web 3D 技术的多种应用。"
           href="/modelview-cases"
         />
+        <FunctionCard
+          title="AR 案例库" 
+          description="基于 AR.js 和 Three.js 的增强现实演示案例集合。"
+          href="/ar-cases"
+        />
         <FunctionCard 
           title="Web机器人实时场景同步" 
           description="通过 Web 界面实时同步和监控机器人所处的场景。"
