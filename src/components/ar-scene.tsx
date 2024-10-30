@@ -34,29 +34,7 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
             console.log('AR.js 已加载');
             resolve(true);
           } else if (attempts >= maxAttempts) {
-            // 如果检查失败，尝试重新加载脚本
-            const threeScript = document.createElement('script');
-            threeScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
-            
-            threeScript.onload = () => {
-              const arScript = document.createElement('script');
-              arScript.src = 'https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js';
-              
-              arScript.onload = () => {
-                if (window.THREEx && window.THREEx.ArToolkitSource) {
-                  console.log('AR.js 动态加载成功');
-                  resolve(true);
-                } else {
-                  reject(new Error('AR.js 加载失败：THREEx 对象未定义'));
-                }
-              };
-              
-              arScript.onerror = () => reject(new Error('AR.js 加载失败'));
-              document.head.appendChild(arScript);
-            };
-            
-            threeScript.onerror = () => reject(new Error('Three.js 加载失败'));
-            document.head.appendChild(threeScript);
+            reject(new Error('AR.js 加载失败：THREEx 对象未定义'));
           } else {
             setTimeout(check, 500);
           }
@@ -77,13 +55,26 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         
         // 创建场景
         const scene = new THREE.Scene();
-        const camera = new THREE.Camera();
+        const camera = new THREE.PerspectiveCamera(
+          75, // 视野角度（FOV）
+          window.innerWidth / window.innerHeight, // 宽高比
+          0.1, // 近平面
+          1000 // 远平面
+        );
         const renderer = new THREE.WebGLRenderer({
           antialias: true,
-          alpha: true
+          alpha: true,
+          preserveDrawingBuffer: true
         });
 
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x000000, 0);
+        renderer.domElement.style.position = 'absolute';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.zIndex = '1';
+
         if (containerRef.current) {
           containerRef.current.appendChild(renderer.domElement);
         }
@@ -94,16 +85,24 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 创建 AR 工具包源
         const arToolkitSource = new window.THREEx.ArToolkitSource({
           sourceType: 'webcam',
-          sourceWidth: window.innerWidth,
-          sourceHeight: window.innerHeight,
-          displayWidth: window.innerWidth,
-          displayHeight: window.innerHeight,
+          displayWidth: undefined,
+          displayHeight: undefined,
+          debugUIEnabled: true
         });
 
         // 初始化 AR 源
         await new Promise<void>((resolve, reject) => {
           try {
             arToolkitSource.init(() => {
+              arToolkitSource.domElement.style.position = 'absolute';
+              arToolkitSource.domElement.style.top = '0';
+              arToolkitSource.domElement.style.left = '0';
+              arToolkitSource.domElement.style.zIndex = '0';
+              
+              if (containerRef.current) {
+                containerRef.current.appendChild(arToolkitSource.domElement);
+              }
+              
               console.log('AR 源初始化完成');
               setTimeout(resolve, 1000);
             });
@@ -119,11 +118,14 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
           maxDetectionRate: 60,
           canvasWidth: window.innerWidth,
           canvasHeight: window.innerHeight,
+          debug: true
         });
 
         // 初始化 AR 上下文
         await new Promise<void>((resolve) => {
-          arToolkitContext.init(() => {
+          arToolkitContext.init(async () => {
+            // 等待一段时间确保完全初始化
+            await new Promise(resolve => setTimeout(resolve, 1000));
             camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
             console.log('AR 上下文初始化完成');
             resolve();
@@ -151,9 +153,18 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         const onResize = () => {
           arToolkitSource.onResizeElement();
           arToolkitSource.copyElementSizeTo(renderer.domElement);
+          
           if (arToolkitContext.arController !== null) {
             arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+            
+            // 更新相机投影矩阵
+            if (camera instanceof THREE.PerspectiveCamera) {
+              camera.aspect = window.innerWidth / window.innerHeight;
+              camera.updateProjectionMatrix();
+            }
           }
+          
+          renderer.setSize(window.innerWidth, window.innerHeight);
         };
 
         window.addEventListener('resize', onResize);
@@ -162,13 +173,19 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 动画循环
         const animate = () => {
           requestAnimationFrame(animate);
-          if (arToolkitSource.ready) {
-            arToolkitContext.update(arToolkitSource.domElement);
-            scene.visible = camera.visible;
+          if (arToolkitSource.ready === true) {
+            try {
+              renderer.clear();
+              // 确保 AR 上下文和控制器都已准备好
+              if (arToolkitContext && arToolkitContext.arController) {
+                arToolkitContext.update(arToolkitSource.domElement);
+                scene.visible = camera.visible;
+              }
+              renderer.render(scene, camera);
+            } catch (error) {
+              console.warn('AR 渲染错误:', error);
+            }
           }
-          cube.rotation.x += 0.01;
-          cube.rotation.y += 0.01;
-          renderer.render(scene, camera);
         };
 
         animate();
@@ -203,7 +220,12 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         position: 'fixed',
         top: 0,
         left: 0,
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        zIndex: 1000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
       }} 
     />
   );

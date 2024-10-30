@@ -79,7 +79,12 @@ export default function MarkerBasic() {
     <div style={{ 
       width: '100vw', 
       height: '100vh', 
-      position: 'relative',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      margin: 0,
+      padding: 0,
+      overflow: 'hidden',
       backgroundColor: '#000'
     }}>
       {status === 'ready' && (
@@ -156,7 +161,16 @@ export default function MarkerBasic() {
       )}
 
       {status === 'running' && (
-        <DynamicARScene onError={handleError} onLoad={handleLoad} />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          overflow: 'hidden'
+        }}>
+          <DynamicARScene onError={handleError} onLoad={handleLoad} />
+        </div>
       )}
     </div>
   );
