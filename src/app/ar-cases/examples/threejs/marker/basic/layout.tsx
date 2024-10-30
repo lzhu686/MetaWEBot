@@ -14,40 +14,56 @@ export default function ARLayout({
   useEffect(() => {
     // 监听 AR.js 加载状态
     const checkARJS = () => {
-      if (window.THREEx && window.THREEx.ArToolkitSource) {
+      if (window.THREEx?.ArToolkitSource) {
         setArjsLoaded(true)
       }
     }
 
-    window.addEventListener('load', checkARJS)
-    return () => window.removeEventListener('load', checkARJS)
-  }, [])
-
-  useEffect(() => {
-    const handleError = (event: ErrorEvent) => {
-      if (event.filename?.includes('ar.js')) {
-        setArjsError('加载失败，请刷新页面重试')
+    const interval = setInterval(checkARJS, 500)
+    const timeout = setTimeout(() => {
+      clearInterval(interval)
+      if (!window.THREEx?.ArToolkitSource) {
+        setArjsError('AR.js 加载超时')
       }
-    }
+    }, 10000)
 
-    window.addEventListener('error', handleError)
-    return () => window.removeEventListener('error', handleError)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
   }, [])
 
   return (
-    <div>
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      margin: 0,
+      padding: 0,
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: 0
+    }}>
+      {/* 按顺序加载必要的脚本 */}
       <Script 
-        src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"
+        src="/libs/ar-js/three.js/build/three.min.js"
         strategy="beforeInteractive"
         id="threejs"
       />
       <Script 
-        src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"
+        src="/libs/ar-js/three.js/build/ar-threex.js"
+        strategy="afterInteractive"
+        id="artoolkit-api"
+        onLoad={() => console.log('ARToolkit API loaded')}
+      />
+      <Script 
+        src="/libs/ar-js/three.js/build/ar.js"
         strategy="afterInteractive"
         id="arjs"
+        onLoad={() => console.log('AR.js loaded')}
       />
       
-      {/* AR.js 加载状态提示 */}
+      {/* 状态提示 */}
       {!arjsLoaded && !arjsError && (
         <div style={{
           position: 'fixed',
@@ -59,29 +75,12 @@ export default function ARLayout({
           padding: '8px 16px',
           borderRadius: '4px',
           fontSize: '14px',
-          zIndex: 1000
+          zIndex: 1001
         }}>
           正在加载 AR.js...
         </div>
       )}
       
-      {arjsError && (
-        <div style={{
-          position: 'fixed',
-          top: 10,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(255,0,0,0.7)',
-          color: 'white',
-          padding: '8px 16px',
-          borderRadius: '4px',
-          fontSize: '14px',
-          zIndex: 1000
-        }}>
-          AR.js 加载失败: {arjsError}
-        </div>
-      )}
-
       {children}
     </div>
   )
