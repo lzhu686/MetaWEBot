@@ -56,10 +56,12 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 创建场景
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(
-          75, // 视野角度（FOV）
-          window.innerWidth / window.innerHeight, // 宽高比
-          0.1, // 近平面
-          1000 // 远平面
+          45,  // FOV（视场角）- 较小的角度会让物体看起来更"真实"
+              // 增大会使视野更宽但可能产生畸变
+              // 建议范围：30-45度
+          window.innerWidth / window.innerHeight,  // 宽高比
+          0.1,   // 近平面 - 太小可能导致闪烁，太大可能看不到近处物体
+          1000   // 远平面 - 影响渲染距离
         );
         const renderer = new THREE.WebGLRenderer({
           antialias: true,
@@ -113,20 +115,31 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
 
         // 创建 AR 上下文
         const arToolkitContext = new window.THREEx.ArToolkitContext({
-          cameraParametersUrl: '/libs/ar-js/data/camera_para.dat',
-          detectionMode: 'mono',
-          maxDetectionRate: 60,
-          canvasWidth: window.innerWidth,
+          cameraParametersUrl: '/libs/ar-js/data/camera_para.dat', // 相机标定参数
+          detectionMode: 'mono',  // 单目检测模式
+          maxDetectionRate: 60,   // 最大检测帧率，影响性能和稳定性
+          canvasWidth: window.innerWidth,   // 画布尺寸
           canvasHeight: window.innerHeight,
-          debug: true
+          patternRatio: 0.5,    // 标记比例 - 越大检测越精确但需要更清晰的图像，检测不稳定调整这里
+                                 // 建议范围：0.5-0.8
+          imageSmoothingEnabled: true,  // 图像平滑处理
+          debug: false  // 调试模式
         });
 
         // 初始化 AR 上下文
         await new Promise<void>((resolve) => {
-          arToolkitContext.init(async () => {
-            // 等待一段时间确保完全初始化
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          arToolkitContext.init(() => {
+            // 复制 AR.js 的投影矩阵到 Three.js 相机
             camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+            
+            // 添加这部分代码来调整投影矩阵
+            const scale = window.innerWidth / window.innerHeight;
+            if (scale > 1) {
+              camera.projectionMatrix.elements[0] /= scale;
+            } else {
+              camera.projectionMatrix.elements[5] *= scale;
+            }
+            
             console.log('AR 上下文初始化完成');
             resolve();
           });
@@ -140,13 +153,19 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         new window.THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
           type: 'pattern',
           patternUrl: '/libs/ar-js/data/patt.hiro',
+          smooth: true,         // 启用平滑
+          smoothCount: 5,       // 平滑帧数 - 增加会更稳定但响应更慢，响应慢调整这里
+                                 // 建议范围：3-8
+          smoothTolerance: 0.01, // 平滑容差 - 越小越精确但可能抖动，抖动调整这里
+                                 // 建议范围：0.001-0.01
+          smoothThreshold: 2    // 平滑阈值 - 影响突变检测，突变调整这里
         });
 
         // 创建立方体
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const material = new THREE.MeshNormalMaterial();
         const cube = new THREE.Mesh(geometry, material);
-        cube.position.y = 0.5;
+        cube.position.y = 0.4;
         markerRoot.add(cube);
 
         // 处理窗口大小变化
@@ -157,10 +176,17 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
           if (arToolkitContext.arController !== null) {
             arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
             
-            // 更新相机投影矩阵
-            if (camera instanceof THREE.PerspectiveCamera) {
-              camera.aspect = window.innerWidth / window.innerHeight;
-              camera.updateProjectionMatrix();
+            // 更新相机和投影矩阵
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+            
+            // 调整投影矩阵，位置偏移调整整理
+            const scale = window.innerWidth / window.innerHeight;
+            if (scale > 1) {
+              camera.projectionMatrix.elements[0] /= (scale * 1.1); // 横向缩放因子
+            } else {
+              camera.projectionMatrix.elements[5] *= (scale * 0.9); // 纵向缩放因子
             }
           }
           
@@ -176,9 +202,9 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
           if (arToolkitSource.ready === true) {
             try {
               renderer.clear();
-              // 确保 AR 上下文和控制器都已准备好
-              if (arToolkitContext && arToolkitContext.arController) {
+              if (arToolkitContext.arController !== null) {
                 arToolkitContext.update(arToolkitSource.domElement);
+                // 确保场景可见性与相机同步
                 scene.visible = camera.visible;
               }
               renderer.render(scene, camera);
