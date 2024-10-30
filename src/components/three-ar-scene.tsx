@@ -91,10 +91,10 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 创建场景
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(
-          isMobile ? 60 : 45,  // 移动端使用更大的FOV
+          isMobile ? 60 : 45,  // FOV (视场角)
           window.innerWidth / window.innerHeight,
-          0.1,
-          2000
+          0.5, // 近裁剪面 0.1-1.0（太小可能造成z-fighting）
+          1000 // 远裁剪面 100-2000（太大可能造成z-fighting）
         );
 
         const renderer = new THREE.WebGLRenderer({
@@ -126,18 +126,23 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
         // 创建 AR 工具包源
         const arToolkitSource = new window.THREEx.ArToolkitSource({
           sourceType: 'webcam',
-          displayWidth: undefined,
-          displayHeight: undefined,
-          debugUIEnabled: true
+          sourceWidth: window.innerWidth,    // 添加源宽度
+          sourceHeight: window.innerHeight,  // 添加源高度
+          displayWidth: window.innerWidth,   // 添加显示宽度
+          displayHeight: window.innerHeight, // 添加显示高度
+          debugUIEnabled: false
         });
 
-        // 初始化 AR 源
+        // 初始化 AR 源时设置视频元素样式
         await new Promise<void>((resolve, reject) => {
           try {
             arToolkitSource.init(() => {
               arToolkitSource.domElement.style.position = 'absolute';
               arToolkitSource.domElement.style.top = '0';
               arToolkitSource.domElement.style.left = '0';
+              arToolkitSource.domElement.style.width = '100%';     // 确保宽度100%
+              arToolkitSource.domElement.style.height = '100%';    // 确保高度100%
+              arToolkitSource.domElement.style.objectFit = 'cover'; // 添加objectFit
               arToolkitSource.domElement.style.zIndex = '0';
               
               if (containerRef.current) {
@@ -215,15 +220,9 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
             // 更新相机和投影矩阵
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-            camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
             
-            // 调整投影矩阵，位置偏移调整整理
-            const scale = window.innerWidth / window.innerHeight;
-            if (scale > 1) {
-              camera.projectionMatrix.elements[0] /= (scale * 1.1); // 横向缩放因子
-            } else {
-              camera.projectionMatrix.elements[5] *= (scale * 0.9); // 纵向缩放因子
-            }
+            // 更新渲染器尺寸
+            renderer.setSize(window.innerWidth, window.innerHeight);
           }
           
           renderer.setSize(window.innerWidth, window.innerHeight);
@@ -281,17 +280,14 @@ export function ARScene({ onError, onLoad }: ARSceneProps) {
     <div 
       ref={containerRef} 
       style={{ 
-        width: '100vw', 
-        height: '100vh', 
-        position: 'fixed',
+        position: 'fixed',           // 改为fixed
         top: 0,
         left: 0,
-        backgroundColor: 'transparent',
+        width: '100vw',             // 使用vw
+        height: '100vh',            // 使用vh
+        backgroundColor: '#000',
         overflow: 'hidden',
-        zIndex: 1000,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
+        zIndex: 1000
       }} 
     />
   );

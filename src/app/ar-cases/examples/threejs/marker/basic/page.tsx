@@ -8,16 +8,20 @@ import dynamic from 'next/dynamic';
 type ARStatus = 'ready' | 'loading' | 'running' | 'error';
 
 // 动态导入 AR 场景组件
-const DynamicARScene = dynamic(() => Promise.resolve(ARScene), {
+const DynamicARScene = dynamic(() => import('@/components/three-ar-scene').then(mod => mod.ARScene), {
   ssr: false,
   loading: () => (
     <div style={{
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
       color: 'white',
-      textAlign: 'center'
+      backgroundColor: 'transparent'
     }}>
       正在加载 AR 组件...
     </div>
@@ -61,7 +65,7 @@ export default function MarkerBasic() {
         }
       }
 
-      // 检查 AR.js
+      // 检 AR.js
       if (!window.THREEx) {
         throw new Error('AR组件未加载，请刷新页面重试');
       }
@@ -96,15 +100,18 @@ export default function MarkerBasic() {
 
   return (
     <div style={{ 
-      width: '100vw', 
-      height: '100vh', 
       position: 'fixed',
       top: 0,
       left: 0,
+      width: '100vw',
+      height: '100vh',
       margin: 0,
       padding: 0,
       overflow: 'hidden',
-      backgroundColor: '#000'
+      backgroundColor: '#000',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center'
     }}>
       {status === 'ready' && (
         <div style={{
