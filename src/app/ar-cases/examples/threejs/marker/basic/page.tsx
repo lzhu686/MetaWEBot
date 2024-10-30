@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react';
-import { ARScene } from '@/components/ar-scene';
+import { ARScene } from '@/components/three-ar-scene';
 import dynamic from 'next/dynamic';
 
 // 状态类型定义
@@ -46,17 +46,36 @@ export default function MarkerBasic() {
     try {
       setStatus('loading');
       
-      // 检查 AR.js 是否已加载
+      // 检查是否为安全上下文
+      if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+        throw new Error('请使用 HTTPS 连接访问此页面');
+      }
+
+      // 检查浏览器兼容性
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        if (isIOS) {
+          throw new Error('iOS设备请使用Safari浏览器');
+        } else {
+          throw new Error('您的浏览器不支持AR功能，请使用最新版本的Chrome、Firefox或Safari');
+        }
+      }
+
+      // 检查 AR.js
       if (!window.THREEx) {
-        throw new Error('AR.js 未加载，请刷新页面重试');
+        throw new Error('AR组件未加载，请刷新页面重试');
       }
 
       // 请求摄像头权限
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment'
-        } 
-      });
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
       if (stream.getVideoTracks().length > 0) {
         setStatus('running');
@@ -65,7 +84,7 @@ export default function MarkerBasic() {
       }
     } catch (error: any) {
       console.error('AR初始化错误:', error);
-      handleError(error.message || '无法访问摄像头，请确保已授予摄像头访问权限。');
+      handleError(error.message || '无法访问摄像头，请确保已授予摄像头权限。');
     }
   }, [handleError]);
 
