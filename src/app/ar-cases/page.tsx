@@ -8,8 +8,35 @@ export default function ARCasesPage() {
     <div className="container mx-auto px-4 py-8">
       <PageTitle 
         title="AR 案例库" 
-        description="基于 AR.js 的 Three.js 与 A-Frame 增强现实示例集合"
+        description="基于 AR.js、MindAR 的 Three.js 与 A-Frame 增强现实示例集合"
       />
+
+      {/* MindAR 示例区块 */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold mb-6">MindAR 示例</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <FunctionCard
+            title="图像追踪基础"
+            description="使用MindAR实现基础图像追踪与3D模型展示"
+            href="/ar-cases/examples/mindar/image/basic"
+          />
+          <FunctionCard
+            title="多目标追踪"
+            description="同时追踪多个图像目标并展示不同内容"
+            href="/ar-cases/examples/mindar/image/multi"
+          />
+          <FunctionCard
+            title="人脸追踪"
+            description="基于MindAR的人脸追踪与虚拟试戴"
+            href="/ar-cases/examples/mindar/face/tryon"
+          />
+          <FunctionCard
+            title="人脸网格"
+            description="展示人脸网格特效和面部追踪"
+            href="/ar-cases/examples/mindar/face/mesh"
+          />
+        </div>
+      </div>
 
       {/* Three.js 示例区块 */}
       <div className="mb-12">
@@ -102,6 +129,16 @@ export default function ARCasesPage() {
               className="text-blue-600 hover:underline"
             >
               A-Frame 文档
+            </a>
+          </li>
+          <li>
+            <a 
+              href="https://hiukim.github.io/mind-ar-js-doc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              MindAR 官方文档
             </a>
           </li>
         </ul>
